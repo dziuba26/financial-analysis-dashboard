@@ -101,15 +101,20 @@ def add_custom_css() -> None:
         }
 
         .dashboard-header h1 {
-            font-size: 30px;
+            font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
             margin: 0;
             color: #0f172a;
         }
 
         .dashboard-header h2 {
+            font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
             font-size: 20px;
+            font-weight: 600;
             margin: 4px 0 0 0;
-            color: #1f2937;
+            color: #111827;
         }
 
         .dashboard-header p {
