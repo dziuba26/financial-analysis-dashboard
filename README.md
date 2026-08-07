@@ -49,6 +49,16 @@ Remaining:
 - processed metrics: `data/processed/apple_financial_metrics_2022_2025.csv`
 - reusable SQL queries: `sql/`
 
+## Dashboard Screenshots
+
+Executive summary and first trend charts:
+
+![Executive summary and revenue trends](images/dashboard_executive_summary.png)
+
+Additional trend charts and analyst observations:
+
+![Trend charts and analyst observations](images/dashboard_trends_observations.png)
+
 ## Financial Metrics
 
 The project currently analyzes:
