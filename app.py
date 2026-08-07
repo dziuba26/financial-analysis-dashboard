@@ -11,6 +11,57 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 DATABASE_PATH = PROJECT_ROOT / "database" / "financial_analysis.sqlite"
 TABLE_NAME = "apple_financial_metrics"
 
+METRIC_FOCUS_OPTIONS = {
+    "Revenue": {
+        "column": "revenue_usd_millions",
+        "label": "Revenue",
+        "y_label": "USD millions",
+        "color": "#2563eb",
+        "format": "usd_millions",
+        "finance_note": "Revenue shows Apple's top-line sales before expenses.",
+    },
+    "Net Income": {
+        "column": "net_income_usd_millions",
+        "label": "Net Income",
+        "y_label": "USD millions",
+        "color": "#16a34a",
+        "format": "usd_millions",
+        "finance_note": "Net income shows profit after expenses, taxes, and other costs.",
+    },
+    "Diluted EPS": {
+        "column": "diluted_eps_usd_per_share",
+        "label": "Diluted EPS",
+        "y_label": "USD/share",
+        "color": "#7c3aed",
+        "format": "usd_per_share",
+        "finance_note": "Diluted EPS shows profit per share after accounting for potential share dilution.",
+    },
+    "ROE": {
+        "column": "return_on_equity",
+        "label": "ROE",
+        "y_label": "ROE %",
+        "color": "#0f766e",
+        "format": "percent",
+        "finance_note": "ROE shows profit generated relative to ending shareholders' equity.",
+    },
+    "Free Cash Flow": {
+        "column": "free_cash_flow_usd_millions",
+        "label": "Free Cash Flow",
+        "y_label": "USD millions",
+        "color": "#eab308",
+        "format": "usd_millions",
+        "finance_note": "Free cash flow shows cash generated after capital expenditures.",
+    },
+    "Net Profit Margin": {
+        "column": "net_profit_margin",
+        "label": "Net Profit Margin",
+        "y_label": "Net margin %",
+        "color": "#ea580c",
+        "format": "percent",
+        "finance_note": "Net profit margin shows how much of each revenue dollar becomes net income.",
+    },
+}
+
 
 @st.cache_data
 def load_financial_metrics() -> pd.DataFrame:
@@ -52,6 +103,36 @@ def format_delta(value: float | None, suffix: str = "%") -> str:
     if pd.isna(value):
         return "No prior year"
     return f"{value * 100:+.1f}{suffix} vs. prior year"
+
+
+def format_metric_value(value: float, value_format: str) -> str:
+    """Format a selected metric value for the focus panel."""
+    if value_format == "percent":
+        return format_percent(value)
+    if value_format == "usd_per_share":
+        return f"${value:.2f}"
+    return format_dollars_millions(value)
+
+
+def calculate_metric_change(
+    selected_year: pd.Series,
+    prior_year: pd.Series | None,
+    metric_config: dict[str, str],
+) -> tuple[str, bool]:
+    """Calculate the selected metric's change from the prior year."""
+    if prior_year is None:
+        return "No prior year", True
+
+    column = metric_config["column"]
+    selected_value = selected_year[column]
+    prior_value = prior_year[column]
+
+    if metric_config["format"] == "percent":
+        change = selected_value - prior_value
+        return format_delta(change, " pp"), change >= 0
+
+    change = (selected_value / prior_value) - 1
+    return format_delta(change), change >= 0
 
 
 def get_selected_year_row(financials: pd.DataFrame, fiscal_year: int) -> pd.Series:
@@ -364,16 +445,61 @@ def build_line_chart(
     return figure
 
 
+def build_focus_chart(financials: pd.DataFrame, metric_config: dict[str, str]) -> go.Figure:
+    """Create the larger chart controlled by the Metric Focus selector."""
+    return build_line_chart(
+        financials,
+        metric_config["column"],
+        f"{metric_config['label']} Focus",
+        metric_config["y_label"],
+        metric_config["color"],
+        metric_config["format"],
+    )
+
+
+def show_metric_focus(
+    financials: pd.DataFrame,
+    selected_year: pd.Series,
+    prior_year: pd.Series | None,
+    selected_metric: str,
+) -> None:
+    """Display the interactive metric focus panel."""
+    metric_config = METRIC_FOCUS_OPTIONS[selected_metric]
+    selected_value = selected_year[metric_config["column"]]
+    change_text, positive_change = calculate_metric_change(selected_year, prior_year, metric_config)
+    change_class = "kpi-delta-positive" if positive_change else "kpi-delta-negative"
+
+    chart_column, explanation_column = st.columns([1.8, 1])
+    with chart_column:
+        st.plotly_chart(build_focus_chart(financials, metric_config), width="stretch")
+
+    with explanation_column:
+        st.markdown(
+            f"""
+            <div class="panel">
+                <h3>Metric Focus</h3>
+                <p><strong>{metric_config['label']} | FY{int(selected_year['fiscal_year'])}</strong></p>
+                <p style="font-size: 30px; font-weight: 800; margin: 8px 0;">
+                    {format_metric_value(selected_value, metric_config['format'])}
+                </p>
+                <p class="{change_class}">{change_text}</p>
+                <p>{metric_config['finance_note']}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
 def show_main_charts(financials: pd.DataFrame) -> None:
     """Display the top financial trend charts."""
     chart_columns = st.columns(3)
     chart_columns[0].plotly_chart(
         build_line_chart(financials, "revenue_usd_millions", "Revenue Trend", "USD millions", "#2563eb"),
-        use_container_width=True,
+        width="stretch",
     )
     chart_columns[1].plotly_chart(
         build_line_chart(financials, "net_income_usd_millions", "Net Income Trend", "USD millions", "#16a34a"),
-        use_container_width=True,
+        width="stretch",
     )
     chart_columns[2].plotly_chart(
         build_line_chart(
@@ -383,7 +509,7 @@ def show_main_charts(financials: pd.DataFrame) -> None:
             "USD millions",
             "#eab308",
         ),
-        use_container_width=True,
+        width="stretch",
     )
 
 
@@ -451,11 +577,11 @@ def show_ratio_and_balance_section(financials: pd.DataFrame, selected_year: pd.S
 
     with ratio_panel:
         st.markdown('<div class="panel"><h3>Key Financial Ratios</h3>', unsafe_allow_html=True)
-        st.dataframe(build_ratio_table(financials), use_container_width=True, hide_index=True)
+        st.dataframe(build_ratio_table(financials), width="stretch", hide_index=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     with balance_panel:
-        st.plotly_chart(build_balance_sheet_mix_chart(selected_year), use_container_width=True)
+        st.plotly_chart(build_balance_sheet_mix_chart(selected_year), width="stretch")
 
     eps_panel, roe_panel = st.columns(2)
     with eps_panel:
@@ -468,13 +594,13 @@ def show_ratio_and_balance_section(financials: pd.DataFrame, selected_year: pd.S
                 "#7c3aed",
                 "usd_per_share",
             ),
-            use_container_width=True,
+            width="stretch",
         )
 
     with roe_panel:
         st.plotly_chart(
             build_line_chart(financials, "return_on_equity", "ROE Trend", "ROE %", "#0f766e", "percent"),
-            use_container_width=True,
+            width="stretch",
         )
 
 
@@ -494,7 +620,7 @@ LIMIT 1;
     with sql_column:
         st.markdown('<div class="panel"><h3>SQL Insight Example</h3>', unsafe_allow_html=True)
         st.markdown(f'<div class="sql-box">{sql_query}</div>', unsafe_allow_html=True)
-        st.dataframe(sql_result, use_container_width=True, hide_index=True)
+        st.dataframe(sql_result, width="stretch", hide_index=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     latest_year = int(financials["fiscal_year"].max())
@@ -537,16 +663,25 @@ def main() -> None:
 
     show_sidebar()
 
-    selected_fiscal_year = st.selectbox(
-        "Year",
-        fiscal_years,
-        index=len(fiscal_years) - 1,
-    )
+    year_control, metric_control = st.columns(2)
+    with year_control:
+        selected_fiscal_year = st.selectbox(
+            "Year",
+            fiscal_years,
+            index=len(fiscal_years) - 1,
+        )
+    with metric_control:
+        selected_metric = st.selectbox(
+            "Metric Focus",
+            list(METRIC_FOCUS_OPTIONS),
+        )
+
     selected_year = get_selected_year_row(financials, selected_fiscal_year)
     prior_year = get_prior_year_row(financials, selected_fiscal_year)
 
     show_header(selected_fiscal_year)
     show_kpi_row(selected_year, prior_year)
+    show_metric_focus(financials, selected_year, prior_year, selected_metric)
     show_main_charts(financials)
     show_ratio_and_balance_section(financials, selected_year)
     show_sql_and_summary(financials, selected_year)
