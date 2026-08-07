@@ -87,6 +87,10 @@ def add_custom_css() -> None:
             color: #f8fafc;
         }
 
+        .stApp, .stMarkdown, .stText, label, p, span, div {
+            color: #111827;
+        }
+
         .dashboard-header {
             border: 1px solid #d8dee9;
             border-radius: 8px;
@@ -325,21 +329,31 @@ def build_line_chart(
         go.Scatter(
             x=financials["fiscal_year"],
             y=y_values,
-            mode="lines+markers+text",
+            mode="lines+markers",
             line={"color": color, "width": 3},
             marker={"size": 8},
-            text=labels,
-            textposition="top center",
+            customdata=labels,
+            hovertemplate="Fiscal Year: %{x}<br>Value: %{customdata}<extra></extra>",
         )
     )
     figure.update_layout(
-        title={"text": title, "x": 0.5, "xanchor": "center"},
-        height=315,
-        margin={"l": 20, "r": 20, "t": 55, "b": 20},
+        title={"text": title, "x": 0.5, "xanchor": "center", "font": {"color": "#111827", "size": 18}},
+        height=330,
+        margin={"l": 70, "r": 30, "t": 60, "b": 70},
         paper_bgcolor="white",
         plot_bgcolor="white",
-        xaxis={"title": "Fiscal Year", "dtick": 1, "showgrid": False},
-        yaxis={"title": y_label, "gridcolor": "#e5e7eb"},
+        font={"color": "#111827"},
+        xaxis={
+            "title": {"text": "Fiscal Year", "font": {"color": "#111827"}},
+            "dtick": 1,
+            "showgrid": False,
+            "tickfont": {"color": "#111827"},
+        },
+        yaxis={
+            "title": {"text": y_label, "font": {"color": "#111827"}},
+            "gridcolor": "#e5e7eb",
+            "tickfont": {"color": "#111827"},
+        },
         showlegend=False,
     )
     return figure
@@ -400,20 +414,25 @@ def build_balance_sheet_mix_chart(selected_year: pd.Series) -> go.Figure:
                 values=values,
                 hole=0.55,
                 marker={"colors": ["#dc2626", "#2563eb"]},
-                textinfo="label+percent",
+                textinfo="percent",
+                textposition="inside",
+                insidetextfont={"color": "white", "size": 13},
+                hovertemplate="%{label}: %{value:,.0f}M<br>%{percent}<extra></extra>",
             )
         ]
     )
     figure.update_layout(
-        title={"text": "Balance Sheet Mix", "x": 0.5, "xanchor": "center"},
-        height=340,
-        margin={"l": 10, "r": 10, "t": 55, "b": 10},
+        title={"text": "Balance Sheet Mix", "x": 0.5, "xanchor": "center", "font": {"color": "#111827", "size": 18}},
+        height=330,
+        margin={"l": 20, "r": 20, "t": 60, "b": 25},
+        font={"color": "#111827"},
+        legend={"orientation": "h", "yanchor": "bottom", "y": -0.15, "xanchor": "center", "x": 0.5},
         annotations=[
             {
                 "text": f"FY{int(selected_year['fiscal_year'])}",
                 "x": 0.5,
                 "y": 0.5,
-                "font_size": 18,
+                "font": {"size": 18, "color": "#111827"},
                 "showarrow": False,
             }
         ],
@@ -423,13 +442,17 @@ def build_balance_sheet_mix_chart(selected_year: pd.Series) -> go.Figure:
 
 def show_ratio_and_balance_section(financials: pd.DataFrame, selected_year: pd.Series) -> None:
     """Display ratio analysis, EPS, ROE, and balance sheet mix panels."""
-    ratio_panel, eps_panel, roe_panel, balance_panel = st.columns([1.25, 1, 1, 1])
+    ratio_panel, balance_panel = st.columns([1.35, 1])
 
     with ratio_panel:
         st.markdown('<div class="panel"><h3>Key Financial Ratios</h3>', unsafe_allow_html=True)
         st.dataframe(build_ratio_table(financials), use_container_width=True, hide_index=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
+    with balance_panel:
+        st.plotly_chart(build_balance_sheet_mix_chart(selected_year), use_container_width=True)
+
+    eps_panel, roe_panel = st.columns(2)
     with eps_panel:
         st.plotly_chart(
             build_line_chart(
@@ -448,9 +471,6 @@ def show_ratio_and_balance_section(financials: pd.DataFrame, selected_year: pd.S
             build_line_chart(financials, "return_on_equity", "ROE Trend", "ROE %", "#0f766e", "percent"),
             use_container_width=True,
         )
-
-    with balance_panel:
-        st.plotly_chart(build_balance_sheet_mix_chart(selected_year), use_container_width=True)
 
 
 def show_sql_and_summary(financials: pd.DataFrame, selected_year: pd.Series) -> None:
