@@ -33,12 +33,24 @@ Completed:
 - reusable SQL queries
 - Streamlit dashboard
 - Excel workbook export
+- deployment preparation
 
 Remaining:
 
-- dashboard screenshots
-- final README screenshot section
+- public Streamlit demo URL
 - final review and polish
+
+## Live Demo
+
+Deployment target: Streamlit Community Cloud.
+
+Live app URL:
+
+```text
+Coming soon
+```
+
+Deployment instructions are available in `DEPLOYMENT.md`.
 
 ## Key Deliverables
 
